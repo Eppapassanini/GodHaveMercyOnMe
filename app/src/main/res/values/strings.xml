@@ -1,0 +1,13 @@
+
+<resources>
+    <string name="app_name">TVMaze Shows</string>
+    <string name="variant_code">TVM-SHOWS-MOD_A4_DETAIL_TABS</string>
+    <string name="error_loading">Ошибка загрузки</string>
+    <string name="retry">Повторить</string>
+    <string name="tab_info">Info</string>
+    <string name="tab_related">Related</string>
+    <string name="tab_links">Links</string>
+    <string name="no_summary">No summary available</string>
+    <string name="no_genres">No genres</string>
+    <string name="unknown">Unknown</string>
+</resources>
