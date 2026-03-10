@@ -2,6 +2,7 @@ package com.example.tvmazeshows.ui.detail
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,8 +10,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -24,6 +23,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -37,12 +37,11 @@ import com.example.tvmazeshows.ui.state.UiState
 @Composable
 fun ShowDetailScreen(
     viewModel: ShowDetailViewModel,
-    onNavigateUp: () -> Unit,
     onShowClick: (Int) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedTab by viewModel.selectedTab.collectAsState()
-    val relatedShows by viewModel.relatedShows.collectAsState()
+    val relatedShowsState by viewModel.relatedShowsState.collectAsState()
     val tabs = viewModel.tabs
 
 
@@ -53,7 +52,20 @@ fun ShowDetailScreen(
     }
 
     Scaffold(
-        topBar = { /* ... */ }
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(stringResource(R.string.app_name))
+                        Text(
+                            text = stringResource(R.string.variant_code),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            )
+        }
     ) { padding ->
         when (val state = uiState) {
             is UiState.Loading -> LoadingScreen(modifier = Modifier.padding(padding))
@@ -62,7 +74,7 @@ fun ShowDetailScreen(
                 tabs = tabs,
                 selectedTab = selectedTab,
                 onTabSelected = viewModel::selectTab,
-                relatedShows = relatedShows,
+                relatedShowsState = relatedShowsState,
                 onShowClick = onShowClick,
                 modifier = Modifier.padding(padding)
             )
@@ -82,7 +94,7 @@ fun ShowDetailContent(
     tabs: List<String>,
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
-    relatedShows: List<Show> = emptyList(),
+    relatedShowsState: UiState<List<Show>>,
     onShowClick: (Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -105,7 +117,7 @@ fun ShowDetailContent(
         TabContent(
             show = show,
             selectedTab = selectedTab,
-            relatedShows = relatedShows,
+            relatedShowsState = relatedShowsState,
             onShowClick = onShowClick,
             modifier = Modifier
                 .weight(1f)
@@ -153,15 +165,14 @@ fun TabContent(
     show: Show,
     selectedTab: Int,
     modifier: Modifier = Modifier,
-    relatedShows: List<Show> = emptyList(),
+    relatedShowsState: UiState<List<Show>> = UiState.Loading,
     onShowClick: (Int) -> Unit = {}
 ) {
     when (selectedTab) {
         0 -> InfoTab(show = show, modifier = modifier)
         1 -> RelatedTab(
-            show = show,
             modifier = modifier,
-            relatedShows = relatedShows,
+            relatedShowsState = relatedShowsState,
             onShowClick = onShowClick
         )
         2 -> LinksTab(show = show, modifier = modifier)
@@ -214,9 +225,8 @@ fun InfoRow(label: String, value: String) {
 
 @Composable
 fun RelatedTab(
-    show: Show,
     modifier: Modifier = Modifier,
-    relatedShows: List<Show> = emptyList(),
+    relatedShowsState: UiState<List<Show>> = UiState.Loading,
     onShowClick: (Int) -> Unit = {}
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -226,27 +236,49 @@ fun RelatedTab(
             fontWeight = FontWeight.Bold
         )
 
-        if (relatedShows.isEmpty()) {
-            Text(
-                text = "No related shows found",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(vertical = 4.dp)
-            ) {
-                items(relatedShows.take(3)) { relatedShow ->
-                    RelatedShowCard(
-                        show = relatedShow,
-                        onClick = { onShowClick(relatedShow.id) }
-                    )
+        when (relatedShowsState) {
+            is UiState.Loading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
                 }
+            }
+            is UiState.Content -> {
+                if (relatedShowsState.data.isEmpty()) {
+                    Text(
+                        text = "No related shows found",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(vertical = 4.dp)
+                    ) {
+                        items(relatedShowsState.data) { relatedShow ->
+                            RelatedShowCard(
+                                show = relatedShow,
+                                onClick = { onShowClick(relatedShow.id) }
+                            )
+                        }
+                    }
+                }
+            }
+            is UiState.Error -> {
+                ErrorScreen(
+                    message = relatedShowsState.message,
+                    onRetry = relatedShowsState.retryAction
+                )
             }
         }
     }
 }
+
+
 
 @Composable
 fun RelatedShowCard(show: Show, onClick: () -> Unit) {
@@ -302,7 +334,7 @@ fun RelatedShowCard(show: Show, onClick: () -> Unit) {
 
                 if (show.genres.isNotEmpty()) {
                     Text(
-                        text = show.genres.take(2).joinToString(", "),
+                        text = show.genres.take(3).joinToString(", "),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -372,6 +404,14 @@ fun LinkButton(title: String, url: String, onClick: () -> Unit) {
 }
 
 private fun openUrl(context: android.content.Context, url: String) {
-    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-    context.startActivity(intent)
+    try {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        context.startActivity(intent)
+
+    } catch (e: Exception) {
+        Toast.makeText(context, "Whoops! I can't do it", Toast.LENGTH_SHORT).show()
+    }
 }
