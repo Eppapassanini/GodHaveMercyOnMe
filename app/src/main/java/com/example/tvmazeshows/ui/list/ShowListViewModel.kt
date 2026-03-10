@@ -1,14 +1,13 @@
 package com.example.tvmazeshows.ui.list
 
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.tvmazeshows.domain.model.Show
 import com.example.tvmazeshows.domain.repository.ShowRepository
 import com.example.tvmazeshows.ui.state.UiState
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -17,11 +16,9 @@ class ShowsListViewModel @Inject constructor(
     private val repository: ShowRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<UiState<List<com.example.tvmazeshows.domain.model.Show>>>(UiState.Loading)
-    val uiState = _uiState.asStateFlow()
+    private val _uiState = mutableStateOf<UiState<List<Show>>>(UiState.Loading)
+    val uiState: State<UiState<List<Show>>> = _uiState
 
-    private val _navigation = MutableSharedFlow<Int>()
-    val navigation = _navigation.asSharedFlow()
 
     init {
         loadShows()
@@ -32,7 +29,7 @@ class ShowsListViewModel @Inject constructor(
             _uiState.value = UiState.Loading
             repository.getShows(page = 0)
                 .onSuccess { shows ->
-                    _uiState.value = UiState.Content(shows.take(20))
+                    _uiState.value = UiState.Content(shows.take(100))
                 }
                 .onFailure { error ->
                     _uiState.value = UiState.Error(
@@ -42,5 +39,4 @@ class ShowsListViewModel @Inject constructor(
                 }
         }
     }
-
 }
