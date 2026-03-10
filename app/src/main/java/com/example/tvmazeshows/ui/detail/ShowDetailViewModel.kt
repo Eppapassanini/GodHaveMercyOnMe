@@ -20,23 +20,27 @@ class ShowDetailViewModel @Inject constructor(
 
     private val showId: Int = checkNotNull(savedStateHandle["showId"])
 
-    private val _uiState = MutableStateFlow<UiState<com.example.tvmazeshows.domain.model.Show>>(UiState.Loading)
+
+    private val _uiState = MutableStateFlow<UiState<Show>>(UiState.Loading)
     val uiState = _uiState.asStateFlow()
+
 
     private val _selectedTab = MutableStateFlow(0)
     val selectedTab = _selectedTab.asStateFlow()
 
     val tabs = listOf("Info", "Related", "Links")
 
+
+    private val _relatedShowsState = MutableStateFlow<UiState<List<Show>>>(UiState.Loading)
+    val relatedShowsState = _relatedShowsState.asStateFlow()
+
     init {
         loadShowDetails()
     }
 
-    private val _relatedShows = MutableStateFlow<List<Show>>(emptyList())
-    val relatedShows = _relatedShows.asStateFlow()
-
     fun loadRelatedShows(currentShow: Show) {
         viewModelScope.launch {
+            _relatedShowsState.value = UiState.Loading
 
             repository.getShows(page = 0)
                 .onSuccess { allShows ->
@@ -45,8 +49,19 @@ class ShowDetailViewModel @Inject constructor(
                         .filter { show ->
                             show.genres.any { it in currentShow.genres }
                         }
-                        .take(3)
-                    _relatedShows.value = similar
+                        .take(5)
+
+                    if (similar.isNotEmpty()) {
+                        _relatedShowsState.value = UiState.Content(similar)
+                    } else {
+                        _relatedShowsState.value = UiState.Content(emptyList())
+                    }
+                }
+                .onFailure { error ->
+                    _relatedShowsState.value = UiState.Error(
+                        message = "Failed to load related shows: ${error.localizedMessage ?: "Unknown error"}",
+                        retryAction = { loadRelatedShows(currentShow) }
+                    )
                 }
         }
     }
