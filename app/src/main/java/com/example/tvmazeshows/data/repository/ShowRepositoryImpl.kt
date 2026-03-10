@@ -1,25 +1,33 @@
 
-package com.example.tvmazeshows.di
+package com.example.tvmazeshows.data.repository
 
 import com.example.tvmazeshows.data.network.TvMazeApi
 import com.example.tvmazeshows.data.network.IoDispatcher
-import com.example.tvmazeshows.data.repository.ShowRepositoryImpl
+import com.example.tvmazeshows.domain.model.Show
+import com.example.tvmazeshows.domain.model.toDomain
 import com.example.tvmazeshows.domain.repository.ShowRepository
-import dagger.Module
-import dagger.Provides
-import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
+import javax.inject.Inject
 import javax.inject.Singleton
 
-@Module
-@InstallIn(SingletonComponent::class)
-object RepositoryModule {
+@Singleton
+class ShowRepositoryImpl @Inject constructor(
+    private val api: TvMazeApi,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+) : ShowRepository {
 
-    @Provides
-    @Singleton
-    fun provideShowRepository(
-        api: TvMazeApi,
-        @IoDispatcher ioDispatcher: CoroutineDispatcher
-    ): ShowRepository = ShowRepositoryImpl(api, ioDispatcher)
+    override suspend fun getShows(page: Int): Result<List<Show>> =
+        withContext(ioDispatcher) {
+            runCatching {
+                api.getShows(page).map { it.toDomain() }
+            }
+        }
+
+    override suspend fun getShowDetails(showId: Int): Result<Show> =
+        withContext(ioDispatcher) {
+            runCatching {
+                api.getShowById(showId).toDomain()
+            }
+        }
 }
